@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Centro de Partidas | Tic Tac Toe</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/lucide@latest/dist/lu.min.css" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      background-color: #111;
+      color: #e0e0e0;
+      padding: 2rem;
+    }
+
+    h1, h2 {
+      color: #ffd700;
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    .section {
+      background-color: #1c1c1c;
+      padding: 2rem;
+      border-radius: 15px;
+      margin: 2rem auto;
+      max-width: 860px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    }
+
+    label {
+      font-weight: 600;
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.9rem;
+      border-radius: 8px;
+      border: 1px solid #444;
+      background-color: #2a2a2a;
+      color: #fff;
+      font-size: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    button {
+      background: linear-gradient(135deg, #00e676, #00c853);
+      color: #000;
+      font-weight: 600;
+      padding: 0.9rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 1rem;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+      background: linear-gradient(135deg, #00c853, #00e676);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+
+    th, td {
+      padding: 1rem;
+      text-align: center;
+      border-bottom: 1px solid #333;
+    }
+
+    th {
+      background-color: #2e2e2e;
+      color: #ffeb3b;
+      font-weight: 600;
+    }
+
+    .no-partidas {
+      color: #999;
+      font-style: italic;
+    }
+
+    .icon {
+      vertical-align: middle;
+      margin-right: 0.5rem;
+    }
+
+    @media (max-width: 600px) {
+      .section {
+        padding: 1.2rem;
+      }
+
+      input, button {
+        font-size: 0.95rem;
+      }
+
+      th, td {
+        padding: 0.7rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1><i class="lu lu-gamepad icon"></i>Centro de Partidas - Tic Tac Toe 5x5</h1>
+
+  <div class="section">
+    <h2><i class="lu lu-plus-circle icon"></i>Crear Nueva Partida</h2>
+    <label for="apuesta"><i class="lu lu-wallet icon"></i>Apuesta (mínimo 1 sol)</label>
+    <input type="number" id="apuesta" min="1" placeholder="Ingresa el monto de la apuesta" />
+    <button onclick="crearPartida()"><i class="lu lu-dice-5 icon"></i>Crear Partida</button>
+  </div>
+
+  <div class="section">
+    <h2><i class="lu lu-list icon"></i>Partidas Disponibles</h2>
+    <table>
+      <thead>
+        <tr>
+          <th><i class="lu lu-user icon"></i>Jugador</th>
+          <th><i class="lu lu-coins icon"></i>Apuesta</th>
+          <th><i class="lu lu-handshake icon"></i>Acción</th>
+        </tr>
+      </thead>
+      <tbody id="listaPartidas">
+        <tr><td colspan="3" class="no-partidas">Cargando partidas...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+
+    function crearPartida() {
+      const apuesta = document.getElementById('apuesta').value;
+
+      fetch('http://localhost:3000/api/game/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ apuesta })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.partida && data.partida._id) {
+          window.location.href = `partida.html?id=${data.partida._id}`;
+        } else {
+          alert(data.msg || 'Error al crear la partida');
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Error al crear la partida');
+      });
+    }
+
+    function cargarPartidas() {
+      fetch('http://localhost:3000/api/game/available', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        const tbody = document.getElementById('listaPartidas');
+        tbody.innerHTML = '';
+
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3" class="no-partidas">No hay partidas disponibles.</td></tr>';
+          return;
+        }
+
+        data.forEach(p => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${p.creador}</td>
+            <td>S/ ${p.apuesta}</td>
+            <td><button onclick="unirseAPartida('${p.id}')">Unirse</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Error al cargar partidas');
+      });
+    }
+
+    async function unirseAPartida(partidaId) {
+      if (!token) {
+        alert('Debes iniciar sesión para unirte.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`http://localhost:3000/api/game/join/${partidaId}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          window.location.href = `partida.html?id=${partidaId}`;
+        } else {
+          alert(data.msg || 'No se pudo unir a la partida');
+        }
+      } catch (err) {
+        console.error('Error al unirse:', err);
+        alert('Error del servidor');
+      }
+    }
+
+    cargarPartidas();
+  </script>
+</body>
+</html>

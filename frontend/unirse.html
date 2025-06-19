@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Unirse a una Partida</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 2rem;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .partida {
+      background: white;
+      padding: 1rem 2rem;
+      margin-bottom: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .info {
+      font-size: 1rem;
+    }
+
+    button {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      border: none;
+      background: #28a745;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #218838;
+    }
+
+    #mensaje {
+      text-align: center;
+      margin-top: 1rem;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Unirse a una Partida</h1>
+  <div id="listaPartidas"></div>
+  <div id="mensaje"></div>
+
+  <script>
+    const lista = document.getElementById('listaPartidas');
+    const mensaje = document.getElementById('mensaje');
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+      alert("No has iniciado sesión");
+      window.location.href = 'login.html';
+    }
+
+    // 🔄 Cargar partidas disponibles
+    async function cargarPartidas() {
+      try {
+        const res = await fetch('http://localhost:3000/api/game/available', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const partidas = await res.json();
+        lista.innerHTML = '';
+
+        if (partidas.length === 0) {
+          lista.innerHTML = '<p>No hay partidas disponibles en este momento.</p>';
+          return;
+        }
+
+        partidas.forEach(p => {
+          const div = document.createElement('div');
+          div.className = 'partida';
+          div.innerHTML = `
+            <div class="info">
+              <strong>${p.creador}</strong> - Apuesta: S/ ${p.apuesta}
+            </div>
+            <button onclick="unirse('${p.id}')">Unirse</button>
+          `;
+          lista.appendChild(div);
+        });
+      } catch (err) {
+        console.error(err);
+        mensaje.textContent = '❌ Error al cargar partidas';
+        mensaje.style.color = 'red';
+      }
+    }
+
+    // ➕ Unirse a una partida
+    async function unirse(id) {
+      try {
+        const res = await fetch(`http://localhost:3000/api/game/join/${id}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          mensaje.textContent = `✅ Te uniste a la partida de ${data.partida.jugador1}`;
+          mensaje.style.color = 'green';
+          setTimeout(() => {
+            // Aquí deberías redirigir a la sala de juego cuando esté lista
+            window.location.href = `sala.html?id=${data.partida._id}`;
+          }, 2000);
+        } else {
+          mensaje.textContent = `❌ ${data.msg || 'No se pudo unir'}`;
+          mensaje.style.color = 'red';
+        }
+      } catch (err) {
+        console.error(err);
+        mensaje.textContent = '❌ Error al intentar unirse';
+        mensaje.style.color = 'red';
+      }
+    }
+
+    cargarPartidas();
+  </script>
+
+</body>
+</html>

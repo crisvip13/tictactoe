@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Registro - Tic Tac Toe Apuestas</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 30px;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+    input {
+      padding: 8px;
+      width: 300px;
+      margin-top: 5px;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Crear Cuenta</h1>
+
+  <label for="username">Usuario:</label>
+  <input type="text" id="username" />
+
+  <label for="password">Contraseña:</label>
+  <input type="password" id="password" />
+
+  <button onclick="registrar()">Registrarme</button>
+
+  <p id="mensaje"></p>
+
+  <script>
+    function registrar() {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      fetch('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.msg === 'Usuario registrado exitosamente') {
+          document.getElementById('mensaje').textContent = '✅ Registro exitoso. Serás redirigido al login.';
+          setTimeout(() => {
+            window.location.href = 'login.html';
+          }, 2000);
+        } else {
+          document.getElementById('mensaje').textContent = data.msg || '❌ Error en el registro';
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        document.getElementById('mensaje').textContent = 'Error del servidor';
+      });
+    }
+  </script>
+
+</body>
+</html>

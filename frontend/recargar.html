@@ -1,0 +1,94 @@
+<!-- frontend/recargar.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Recargar Saldo</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+    }
+    form {
+      max-width: 400px;
+      margin: auto;
+      background: #f5f5f5;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    input, button {
+      width: 100%;
+      margin-top: 1rem;
+      padding: 0.75rem;
+      font-size: 1rem;
+    }
+    .mensaje {
+      margin-top: 1rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <form id="formRecarga">
+    <h2>Recargar Saldo</h2>
+    <input type="number" id="monto" placeholder="Monto (mínimo S/5)" required />
+    <button type="submit">Recargar</button>
+    <div class="mensaje" id="mensaje"></div>
+  </form>
+
+  <script>
+    const form = document.getElementById('formRecarga');
+    const mensaje = document.getElementById('mensaje');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const token = localStorage.getItem('token');
+      const monto = parseFloat(document.getElementById('monto').value);
+
+      if (!token) {
+        alert("No has iniciado sesión");
+        window.location.href = 'login.html';
+        return;
+      }
+
+      if (isNaN(monto) || monto < 5) {
+        mensaje.textContent = '❌ El monto mínimo es S/5';
+        mensaje.style.color = 'red';
+        return;
+      }
+
+      try {
+        const res = await fetch('http://localhost:3000/api/auth/deposit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ amount: monto }) // ✅ así tu backend lo entiende
+
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          mensaje.textContent = `✅ Recarga exitosa: S/ ${data.nuevoSaldo}`;
+          mensaje.style.color = 'green';
+          setTimeout(() => {
+    window.location.href = 'dashboard.html'; // redirige luego de 1 segundo
+  }, 1000);
+
+        } else {
+          mensaje.textContent = `❌ ${data.msg || 'Error al recargar'}`;
+          mensaje.style.color = 'red';
+        }
+      } catch (err) {
+        console.error(err);
+        mensaje.textContent = '❌ Error de conexión con el servidor';
+        mensaje.style.color = 'red';
+      }
+    });
+  </script>
+</body>
+</html>

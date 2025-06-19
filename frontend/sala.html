@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Sala de Juego - Tic Tac Toe</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #e0f0ff;
+      margin: 0;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 0.5rem;
+    }
+
+    #jugador {
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+    }
+
+    #tablero {
+      display: grid;
+      grid-template-columns: repeat(5, 60px);
+      grid-template-rows: repeat(5, 60px);
+      gap: 5px;
+      justify-content: center;
+      margin-bottom: 2rem;
+    }
+
+    .celda {
+      background: white;
+      border: 2px solid #333;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      font-weight: bold;
+    }
+
+    .celda.j1 {
+      color: blue;
+    }
+
+    .celda.j2 {
+      color: red;
+    }
+
+    #estado {
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Tic Tac Toe 5x5</h1>
+  <div id="jugador">Cargando jugador...</div>
+  <div id="tablero"></div>
+  <div id="estado"></div>
+
+  <script>
+    const tablero = document.getElementById('tablero');
+    const estado = document.getElementById('estado');
+    const jugadorDiv = document.getElementById('jugador');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const partidaId = urlParams.get('id');
+    const token = localStorage.getItem('token');
+
+    if (!partidaId || !token) {
+      alert('ID de partida o token faltante');
+      window.location.href = 'dashboard.html';
+    }
+
+    let jugadorActual = null; // 'jugador1' o 'jugador2'
+    let miSimbolo = '';
+    let esMiTurno = false;
+
+    // Crea el tablero 5x5
+    function crearTablero() {
+      for (let i = 0; i < 25; i++) {
+        const celda = document.createElement('div');
+        celda.className = 'celda';
+        celda.dataset.index = i;
+        celda.textContent = '';
+        celda.addEventListener('click', () => {
+          if (!esMiTurno || celda.textContent) return;
+          celda.textContent = miSimbolo;
+          celda.classList.add(miSimbolo === 'X' ? 'j1' : 'j2');
+          esMiTurno = false;
+          estado.textContent = "Esperando al oponente...";
+          // 👇 Aquí después enviaremos la jugada al backend
+        });
+        tablero.appendChild(celda);
+      }
+    }
+
+    // ⚙️ Simulación temporal para detectar quién eres
+    async function inicializarSala() {
+      try {
+        const res = await fetch(`http://localhost:3000/api/game/${partidaId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        const data = await res.json();
+
+        const userId = JSON.parse(atob(token.split('.')[1])).id;
+
+        if (data.jugador1 === userId) {
+          jugadorActual = 'jugador1';
+          miSimbolo = 'X';
+          esMiTurno = true;
+          jugadorDiv.textContent = 'Eres Jugador 1 (X)';
+        } else if (data.jugador2 === userId) {
+          jugadorActual = 'jugador2';
+          miSimbolo = 'O';
+          esMiTurno = false;
+          jugadorDiv.textContent = 'Eres Jugador 2 (O)';
+        } else {
+          jugadorDiv.textContent = 'No estás en esta partida';
+        }
+
+        estado.textContent = esMiTurno ? 'Tu turno' : 'Esperando al oponente...';
+
+      } catch (err) {
+        console.error(err);
+        alert("Error al cargar sala");
+        window.location.href = 'dashboard.html';
+      }
+    }
+
+    crearTablero();
+    inicializarSala();
+  </script>
+
+</body>
+</html>

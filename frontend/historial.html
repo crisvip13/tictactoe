@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Historial de Partidas</title>
+  <link rel="stylesheet" href="theme.min.css"> <!-- Usa tu CSS principal -->
+  <style>
+    body { padding: 2rem; font-family: Arial, sans-serif; background-color: #f8f8f8; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; background: white; }
+    th, td { padding: 1rem; border: 1px solid #ddd; text-align: left; }
+    th { background-color: #333; color: white; }
+    .ganaste { color: green; font-weight: bold; }
+    .perdiste { color: red; font-weight: bold; }
+    .enjuego { color: orange; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <h1>🎮 Historial de Partidas</h1>
+  <table id="tablaHistorial">
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Rival</th>
+        <th>Apuesta (S/)</th>
+        <th>Resultado</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const token = localStorage.getItem('token'); // Asegúrate de tener el token guardado
+
+    fetch('http://localhost:3000/api/game/history', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    .then(res => res.json())
+    .then(data => {
+      const tbody = document.querySelector('#tablaHistorial tbody');
+      tbody.innerHTML = '';
+
+      data.forEach(p => {
+        const tr = document.createElement('tr');
+        
+        const fecha = new Date(p.fecha).toLocaleString();
+        const resultadoClase = p.resultado === 'Ganaste' ? 'ganaste'
+                            : p.resultado === 'Perdiste' ? 'perdiste'
+                            : 'enjuego';
+
+        tr.innerHTML = `
+          <td>${fecha}</td>
+          <td>${p.rival}</td>
+          <td>S/ ${p.apuesta}</td>
+          <td class="${resultadoClase}">${p.resultado}</td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    })
+    .catch(err => {
+      console.error('❌ Error al cargar historial:', err);
+      alert('Hubo un error al obtener tu historial');
+    });
+  </script>
+
+</body>
+</html>

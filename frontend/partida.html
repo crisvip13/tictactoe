@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Partida Tic Tac Toe 5x5</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      margin-top: 40px;
+    }
+    #tablero {
+  display: grid;
+  grid-template-columns: repeat(5, 80px);
+  gap: 10px;
+  justify-content: center;
+  position: relative; /* ✅ NECESARIO para que la línea se posicione respecto a esto */
+  width: max-content;  /* ✅ Para que el tablero no ocupe todo el ancho */
+  margin: 0 auto;      /* ✅ Centrado horizontal */
+}
+
+    .celda {
+  width: 80px;
+  height: 80px;
+  font-size: 36px;
+  background: #f0f0f0;
+  border: 2px solid #ccc;
+  cursor: pointer;
+  position: relative; /* ← AÑADE ESTO */
+}
+    .deshabilitada {
+      pointer-events: none;
+      background: #e0e0e0;
+    }    
+
+  </style>
+</head>
+<body>
+
+  <h2>🕹️ Partida en curso</h2>
+  <div id="infoUsuario" style="margin: 15px 0; font-size: 18px;">
+  💰 Saldo actual: <strong id="saldoUsuario">Cargando...</strong>
+</div>
+
+  <div id="tablero"></div>
+
+  <p id="estadoTurno">Cargando turno...</p>
+
+  <script>
+  const partidaId = new URLSearchParams(window.location.search).get('id');
+  const token = localStorage.getItem('token');
+  const tablero = document.getElementById('tablero');
+  const estadoTurno = document.getElementById('estadoTurno');
+  let simboloJugador = '';
+  let miTurno = false;
+
+  // Generar tablero 5x5
+  for (let i = 0; i < 25; i++) {
+    const celda = document.createElement('div');
+    celda.className = 'celda';
+    celda.dataset.index = i;
+    celda.addEventListener('click', jugar);
+    tablero.appendChild(celda);
+  }
+
+  let sonidoInicializado = false;
+
+function jugar(e) {
+  const index = e.target.dataset.index;
+
+  if (!miTurno) {
+    alert("⛔ No es tu turno todavía.");
+    return;
+  }
+
+  // Mostrar jugada al instante
+  const simbolo = simboloJugador === 'jugador1' ? '❌' : '⭘';
+  e.target.textContent = simbolo;
+  e.target.classList.add('deshabilitada', 'animar', simbolo === '❌' ? 'x' : 'o');
+
+  // Reproducir sonido solo al hacer jugada propia
+  const sonido = document.getElementById('sonidoClick');
+  sonido.currentTime = 0;
+  sonido.play().catch(() => {});
+
+  // Cambiar el estado del turno
+  miTurno = false;
+  estadoTurno.textContent = "🕒 Turno del oponente";
+
+  // Enviar al servidor
+  fetch(`http://localhost:3000/api/game/${partidaId}/move`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ index: Number(index) })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.movimientos) {
+      // Actualiza tablero al confirmar jugada (sin sonido)
+      renderizarTablero(data.movimientos, false);
+    } else {
+      alert(data.msg);
+    }
+  });
+}
+
+
+let ultimoEstado = Array(25).fill(null);
+
+  function renderizarTablero(movimientos, reproducirSonido = true) {
+  const nuevoEstado = Array(25).fill(null);
+
+  movimientos.forEach((mov, i) => {
+    const simbolo = (i % 2 === 0) ? '❌' : '⭘';
+    nuevoEstado[mov.index] = simbolo;
+  });
+
+  document.querySelectorAll('.celda').forEach((celda, i) => {
+    const nuevoSimbolo = nuevoEstado[i];
+    const anteriorSimbolo = ultimoEstado[i];
+
+    if (nuevoSimbolo !== anteriorSimbolo && nuevoSimbolo !== null) {
+      celda.textContent = nuevoSimbolo;
+      celda.classList.add('deshabilitada', nuevoSimbolo === '❌' ? 'x' : 'o');
+
+      // Reproducir sonido solo si se permite y es movimiento del otro jugador
+      if (reproducirSonido && nuevoSimbolo !== (simboloJugador === 'jugador1' ? '❌' : '⭘')) {
+        const sonido = document.getElementById('sonidoClick');
+        sonido.currentTime = 0;
+        sonido.play().catch(() => {});
+      }
+    } else if (nuevoSimbolo) {
+      celda.textContent = nuevoSimbolo;
+      celda.classList.add('deshabilitada');
+    } else {
+      celda.textContent = '';
+      celda.classList.remove('deshabilitada');
+    }
+  });
+
+  ultimoEstado = nuevoEstado;
+}
+
+async function actualizarSaldo() {
+  try {
+    const res = await fetch('http://localhost:3000/api/auth/profile', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (res.ok) {
+      document.getElementById('saldoUsuario').textContent = `S/ ${data.saldo.toFixed(2)}`;
+    } else {
+      document.getElementById('saldoUsuario').textContent = 'Error';
+    }
+  } catch (err) {
+    console.error('❌ Error al obtener saldo:', err);
+    document.getElementById('saldoUsuario').textContent = 'Error';
+  }
+}
+
+
+  async function iniciarPartida() {
+  try {
+    // Obtener perfil del jugador autenticado
+    const perfilRes = await fetch(`http://localhost:3000/api/auth/profile`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const usuario = await perfilRes.json();
+
+    // Obtener datos de la partida
+    const partidaRes = await fetch(`http://localhost:3000/api/game/${partidaId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await partidaRes.json();
+    console.log("🎯 Datos de partida:", data);
+    const { jugador1, jugador2, movimientos, turno, ganador, estado } = data;
+// Si ya hay un ganador, mostrarlo y deshabilitar tablero
+if (ganador) {
+  juegoTerminado = true;
+
+  if (usuario.id === ganador) {
+    estadoTurno.textContent = "🏆 ¡Has ganado la partida!";
+    alert("🎉 Felicitaciones, ganaste. El premio es tuyo.");
+  } else {
+    estadoTurno.textContent = "❌ Has perdido esta partida.";
+    alert("💀 Lo siento, perdiste esta vez.");
+  }
+
+  actualizarSaldo();
+
+  // Asegura que el tablero esté actualizado visualmente antes de dibujar
+  renderizarTablero(movimientos, false);
+
+  const indicesGanadores = data.indicesGanadores || [];
+  console.log("📏 Indices ganadores recibidos del backend:", indicesGanadores);
+
+  if (indicesGanadores.length === 5) {
+    indicesGanadores.forEach(i => {
+      document.querySelectorAll('.celda')[i].classList.add('ganadora');
+    });
+
+    dibujarLineaGanadora(indicesGanadores);
+  }
+
+  document.querySelectorAll('.celda').forEach(c => c.classList.add('deshabilitada'));
+
+  setTimeout(() => {
+    window.location.href = 'gestionar-partidas.html';
+  }, 1000);
+
+  return;
+}
+
+
+
+    // Si aún no hay rival
+    if (!jugador2) {
+      estadoTurno.textContent = '🕒 Esperando que otro jugador se una...';
+      document.querySelectorAll('.celda').forEach(c => c.classList.add('deshabilitada'));
+      return;
+    }
+
+    // Asignar símbolo
+    if (usuario.id === jugador1._id) simboloJugador = 'jugador1';
+    else if (usuario.id === jugador2._id) simboloJugador = 'jugador2';
+    else {
+      estadoTurno.textContent = "⚠️ No participas en esta partida.";
+      return;
+    }
+
+    // Renderizar el tablero
+    renderizarTablero(movimientos || []);
+
+    // Determinar turno
+    miTurno = turno === usuario.id;
+    estadoTurno.textContent = miTurno ? '🟢 Tu turno' : '🕒 Turno del oponente';
+
+  } catch (error) {
+    console.error("❌ Error al cargar la partida:", error);
+  }
+}
+iniciarPartida(); // Llama una vez al iniciar
+actualizarSaldo();
+let juegoTerminado = false;
+
+setInterval(() => {
+  if (!miTurno && !juegoTerminado) iniciarPartida();
+}, 5000);
+
+function dibujarLineaGanadora(indices) {
+  const tablero = document.getElementById('tablero');
+  const celdas = document.querySelectorAll('.celda');
+
+  const primera = celdas[indices[0]];
+  const ultima = celdas[indices[4]];
+
+  if (!primera || !ultima) {
+    console.warn('❌ Celdas no encontradas para dibujar la línea');
+    return;
+  }
+
+  const tableroRect = tablero.getBoundingClientRect();
+  const primeraRect = primera.getBoundingClientRect();
+  const ultimaRect = ultima.getBoundingClientRect();
+
+  const x1 = primeraRect.left - tableroRect.left + primera.offsetWidth / 2;
+  const y1 = primeraRect.top - tableroRect.top + primera.offsetHeight / 2;
+  const x2 = ultimaRect.left - tableroRect.left + ultima.offsetWidth / 2;
+  const y2 = ultimaRect.top - tableroRect.top + ultima.offsetHeight / 2;
+
+  const linea = document.createElement('div');
+  linea.classList.add('linea-ganadora');
+  linea.style.position = 'absolute';
+  linea.style.left = `${x1}px`;
+  linea.style.top = `${y1}px`;
+  linea.style.width = `${Math.hypot(x2 - x1, y2 - y1)}px`;
+  linea.style.height = '4px';
+  linea.style.transformOrigin = '0 0';
+  linea.style.transform = `rotate(${Math.atan2(y2 - y1, x2 - x1)}rad)`;
+
+  tablero.appendChild(linea);
+  console.log('🎉 Línea ganadora dibujada:', linea);
+}
+
+
+
+</script>
+
+<style>
+.celda.x {
+  color: #d9534f;
+}
+
+.celda.o {
+  color: #0275d8;
+}
+
+.celda.animar {
+  animation: aparecer 0.3s ease-out;
+}
+
+@keyframes aparecer {
+  0% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+</style>
+
+<audio id="sonidoClick" src="button-20.mp3" preload="auto"></audio>
+
+<style>
+  /* Colores neón */
+  .celda.x {
+    color: #ff1744;
+    text-shadow: 0 0 10px #ff1744, 0 0 20px #ff1744;
+  }
+
+  .celda.o {
+    color: #651fff;
+    text-shadow: 0 0 10px #651fff, 0 0 20px #651fff;
+  }
+
+  /* Animación aparición */
+  .celda.animar {
+    animation: aparecer 0.3s ease-out;
+  }
+
+  @keyframes aparecer {
+    0% {
+      transform: scale(0.3);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  /* Ganador */
+  .celda.ganadora {
+    position: relative;
+    z-index: 2;
+  }
+
+  .linea-ganadora {
+  position: absolute;
+  background: linear-gradient(90deg, #00e5ff, #1de9b6);
+  height: 4px;
+  border-radius: 2px;
+  z-index: 9999;
+  animation: trazar 0.4s ease-out forwards;
+  box-shadow: 0 0 6px #00e5ff, 0 0 12px #00e5ff;
+}
+
+@keyframes trazar {
+  from {
+    transform: scaleX(0) scaleY(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1) scaleY(1);
+    opacity: 1;
+  }
+}
+</style>
+
+</body>
+</html>

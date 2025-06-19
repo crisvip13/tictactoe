@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Perfil del Usuario</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    #saldo {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background-color: #f0f0f0;
+      padding: 10px 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="saldo">Cargando saldo...</div>
+
+  <script>
+    // COPIA aquí tu token JWT que obtuviste al hacer login
+    const token = localStorage.getItem('token');
+
+    // Llamamos a la ruta protegida del backend
+    fetch('http://localhost:3000/api/auth/profile', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      // Una vez que llega la respuesta, actualizamos el texto con el saldo real
+      const saldoDiv = document.getElementById('saldo');
+      saldoDiv.textContent = `💰 Saldo: S/ ${data.saldo}`;
+    })
+    .catch(error => {
+      console.error('Error al obtener perfil:', error);
+      document.getElementById('saldo').textContent = 'Error al cargar saldo';
+    });
+  </script>
+
+</body>
+</html>
